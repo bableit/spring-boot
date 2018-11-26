@@ -16,13 +16,15 @@ import org.springframework.boot.configurationprocessor.impaxee.json.JSONObject;
 
 public class FormFieldGroup extends FormItem 
 {
-	public static enum GroupType { Nested, Array, Collection, Map }
+	public static enum GroupType { Nested, Array, Collection }
 	
-	public static final String MIN_KEY = "min";
-	public static final String MAX_KEY = "max";
-	public static final String CONDITION_KEY = "condition";
+	private static final String MIN_KEY = "min";
+	private static final String MAX_KEY = "max";
+	private static final String CONDITION_KEY = "condition";
+	private static final String TITLE_KEY = "title";
 	
 	private final GroupType type;
+	private String title;
 	private Integer min;
 	private Integer max;
 	private String condition;
@@ -38,7 +40,7 @@ public class FormFieldGroup extends FormItem
 	{
 		FormFieldGroup object = getDefaultObject( type, element, childElements, typeUtils, configPath );
 		
-		AnnotationMirror annotation = AnnotationUtils.getAnnotation(element, AnnotationUtils.FORM_NESTED_OBJECT_ANNOTATION);
+		AnnotationMirror annotation = AnnotationUtils.getAnnotation(element, AnnotationUtils.FORM_GROUP_ANNOTATION);
 		if ( annotation != null )
 		{
 			object.init(annotation);
@@ -62,11 +64,6 @@ public class FormFieldGroup extends FormItem
 		return type == GroupType.Collection;
 	}
 	
-	public boolean isMap()
-	{
-		return type == GroupType.Map;
-	}
-	
 	public List<FormItem> getItems()
 	{
 		return Collections.unmodifiableList(items);
@@ -79,26 +76,22 @@ public class FormFieldGroup extends FormItem
 		
 		if ( items != null )
 		{
-			JSONObject itemsArray = new JSONObject();
-			
-			// Maps are not supported by any json-form out-of-the-box editor.
-			// As a consequence, we need to mimic map support by just 'injecting' the
-			// map key just as an ordinary additional 'input' field.
-			// Of course, that key must again be removed while the
-			// original map structure within the config is being recovered.
-			if ( isMap() )
+			if ( isNested() )
 			{
-				//TODO: mapkey
-				String mapKey = "";
-				itemsArray.put( mapKey, createJSON_MapKey( mapKey ) );
+				JSONObject properties = new JSONObject();
+				for ( FormItem item : items )
+				{
+					properties.put( item.getKey(), item.toJSONSchema() );
+				}
+				object.put( "properties", properties );
 			}
-			
-			for ( FormItem item : items )
+			else
 			{
-				itemsArray.put( item.getKey(), item.toJSONSchema() );
+				if ( items.size() == 1 )
+				{
+					object.put( "items", items.get(0).toJSONSchema() );
+				}
 			}
-
-			object.put( isNested() ? "properties" : "items", itemsArray );
 		}
 		
 		return object;
@@ -108,7 +101,6 @@ public class FormFieldGroup extends FormItem
 	public JSONObject toJSONLayout() throws JSONException
 	{
 		JSONObject object = new JSONObject();
-		putIfNonNull( object, "title", getKey() );
 		putIfNonNull( object, "type", isNested() ? "section" : "array" );
 		putIfNonNull( object, "condition", condition );
 		
@@ -129,10 +121,10 @@ public class FormFieldGroup extends FormItem
 	{
 		JSONObject object = new JSONObject();
 		object.put("type", isNested() ? "object" : "array" );
-		object.put("title", getKey() );
-		//TODO: handle javadoc
-				
-		if ( isArray() || isCollection() || isMap() )
+		putIfNonNull( object, "title", title );
+		putIfNonNull( object, "description", getJavaDoc() );
+
+		if ( isArray() || isCollection() )
 		{
 			if ( min != null )
 				object.put("minItems", min );
@@ -140,15 +132,6 @@ public class FormFieldGroup extends FormItem
 				object.put("maxItems", max );
 		}
 		
-		return object;
-	}
-	
-	private JSONObject createJSON_MapKey( String mapKey ) throws JSONException
-	{
-		JSONObject object = new JSONObject();
-		object.put("type", "string"); // just 'string' keys are supported yet
-		object.put("title", mapKey);
-		object.put("enum", null); //TODO: enums
 		return object;
 	}
 	
@@ -180,6 +163,9 @@ public class FormFieldGroup extends FormItem
 				case CONDITION_KEY: setIfValid( AnnotationUtils.getPropertyValue(
 						properties, CONDITION_KEY, String.class ), value -> condition=value );
 					break;
+				case TITLE_KEY: setIfValid( AnnotationUtils.getPropertyValue(
+						properties, TITLE_KEY, String.class ), value -> title=value );
+					break;
 				}
 			}
 		}
@@ -187,12 +173,20 @@ public class FormFieldGroup extends FormItem
 	
 	private static FormFieldGroup getDefaultObject( GroupType type, Element element, List<FormItem> items, TypeUtils typeUtils, String configPath )
 	{
-		FormFieldGroup o = new FormFieldGroup(type, configPath, createKey(element), typeUtils.getJavaDoc(element));
+		FormFieldGroup group = new FormFieldGroup(type, configPath, createKey(element), typeUtils.getJavaDoc(element));
+		
+		// use capitalized key as default title
+		String key = group.getKey();
+		if ( key != null )
+		{
+			group.title = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+		}
+		
 		if ( items != null )
 		{
-			o.addItems(items);
+			group.addItems(items);
 		}
-		return o;
+		return group;
 	}
 
 }

@@ -44,7 +44,7 @@ public class FormSchemaNode
 
 	public boolean isRoot()
 	{
-		return parent==null && (key==null || key.isBlank());
+		return parent==null && (key==null || key.isEmpty());
 	}
 	
 	public Optional<FormItem> getFormItem()
@@ -78,7 +78,11 @@ public class FormSchemaNode
 			JSONObject properties = new JSONObject();
 			for( FormSchemaNode node : children )
 			{
-				properties.put( node.getKey(), node.toJSON() );
+				String key = node.getKey();
+				if ( key != null )
+				{
+					properties.put( node.getKey(), node.toJSON() );
+				}
 			}
 			
 			object.put( "properties", properties );
@@ -98,9 +102,9 @@ public class FormSchemaNode
 			JSONObject object = new JSONObject();
 			object.put( "type", "object" );
 			
-			if ( key != null )
+			if ( key != null && !key.isEmpty())
 			{
-				object.put("title", key);
+				object.put("title", Character.toUpperCase(key.charAt(0)) + key.substring(1));
 			}
 			
 			return object;

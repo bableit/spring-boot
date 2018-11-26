@@ -10,7 +10,7 @@ import org.springframework.boot.configurationprocessor.impaxee.json.JSONObject;
 
 public class FormSection 
 {	
-	private final FormFieldset defaultFieldset = new FormFieldset( "defaultFieldset" );
+	private final FormFieldset defaultFieldset = new FormFieldset("");
 	
 	private final String key;
 	private Map<String, FormFieldset> fieldsets;
@@ -39,7 +39,7 @@ public class FormSection
 		}
 		
 		FormFieldset fieldset = defaultFieldset;
-		if ( fieldsetKey!=null && !fieldsetKey.isBlank() )
+		if ( fieldsetKey!=null && !fieldsetKey.isEmpty() )
 		{
 			fieldset = fieldsets.get(fieldsetKey);
 			if ( fieldset == null )
@@ -76,7 +76,10 @@ public class FormSection
 		JSONObject object = new JSONObject();
 		object.put("type", fieldsets != null && fieldsets.size() > 1 ?
 				"tabarray" :"section");
-		object.put("title", key );
+		if ( key != null && !key.isEmpty() )
+		{
+			object.put("title", key );
+		}
 		return object;
 	}	
 		

@@ -9,7 +9,7 @@ import org.springframework.boot.configurationprocessor.impaxee.schema.FormItem;
 
 public class FormLayoutBuilder 
 {
-	private final FormTopic defaultTopic = new FormTopic( "defaultTopic" );
+	private final FormTopic defaultTopic = new FormTopic("");
 	
 	private Map<String, FormTopic> topics;
 			
@@ -39,7 +39,7 @@ public class FormLayoutBuilder
 		}
 		
 		FormTopic topic = defaultTopic;
-		if ( topicKey != null && !topicKey.isBlank() )
+		if ( topicKey != null && !topicKey.isEmpty() )
 		{
 			topic = topics.get( topicKey );
 			if ( topic == null )

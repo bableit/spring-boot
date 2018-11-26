@@ -15,31 +15,33 @@ import org.springframework.boot.configurationprocessor.impaxee.json.JSONObject;
 
 public class FormField extends FormItem
 {
-	public static final String TYPE_KEY = "type";
-	public static final String MIN_KEY = "min";
-	public static final String MAX_KEY = "max";
-	public static final String PREPEND_KEY = "prepend";
-	public static final String APPEND_KEY = "append";
-	public static final String PATTERN_KEY = "pattern";
-	public static final String PLACEHOLDER_KEY = "placeholder";
-	public static final String READONLY_KEY = "readonly";
-	public static final String REQUIRED_KEY = "required";
-	public static final String NOTITLE_KEY = "noTitle";
-	public static final String ALLOW_EMPTY_KEY = "allowEmpty";
-	public static final String CSS_CLASS_KEY = "cssClass";
-	public static final String INPUT_CSS_CLASS_KEY = "inputCssClass";
-	public static final String DEFAULT_VALUE_KEY = "defaultValue";
-	public static final String ENUM_VALUES_KEY = "enumValues";
-	public static final String CONDITION_KEY = "condition";
+	private static final String TYPE_KEY = "type";
+	private static final String TITLE_KEY = "title";
+	private static final String MIN_KEY = "min";
+	private static final String MAX_KEY = "max";
+	private static final String PREPEND_KEY = "prepend";
+	private static final String APPEND_KEY = "append";
+	private static final String PATTERN_KEY = "pattern";
+	private static final String PLACEHOLDER_KEY = "placeholder";
+	private static final String READONLY_KEY = "readonly";
+	private static final String REQUIRED_KEY = "required";
+	private static final String NOTITLE_KEY = "noTitle";
+	private static final String DISABLED_KEY = "disabled";
+	private static final String CSS_CLASS_KEY = "cssClass";
+	private static final String INPUT_CSS_CLASS_KEY = "inputCssClass";
+	private static final String DEFAULT_VALUE_KEY = "defaultValue";
+	private static final String ENUM_VALUES_KEY = "enumValues";
+	private static final String CONDITION_KEY = "condition";
 	
 	private Type type;
+	private String title;
 	private String uiType;
 	private Integer min;
 	private Integer max;
 	private Boolean readOnly;
 	private Boolean required;
 	private Boolean noTitle;
-	private Boolean allowEmpty;
+	private Boolean disabled;
 	private String prepend;
 	private String append;
 	private String pattern;
@@ -55,11 +57,16 @@ public class FormField extends FormItem
 		super( path, key, javaDoc );
 	}
 	
+	public static boolean isConvertable( Element element )
+	{
+		return AnnotationUtils.hasAnnotation(element, AnnotationUtils.CONVERTABLE_ANNOTATION);
+	}
+	
 	public static FormField create( Element element, TypeUtils typeUtils, String configPath, Object defaultValue, Object...enumValues )
 	{
 		FormField input = getDefaultInput( element, typeUtils, configPath, defaultValue, enumValues );
 		
-		AnnotationMirror annotation = AnnotationUtils.getAnnotation(element, AnnotationUtils.FORM_INPUT_ANNOTATION);
+		AnnotationMirror annotation = AnnotationUtils.getAnnotation(element, AnnotationUtils.FORM_FIELD_ANNOTATION);
 		if ( annotation != null )
 		{
 			input.init(annotation);
@@ -73,10 +80,11 @@ public class FormField extends FormItem
 	{
 		JSONObject object = new JSONObject();
 		putIfNonNull( object, "type", type );
-		putIfNonNull( object, "title", getKey() );
+		putIfNonNull( object, "title", title );
+		putIfNonNull( object, "description", getJavaDoc() );
 		putIfNonNull( object, "readOnly", readOnly );
 		putIfNonNull( object, "required", required );
-		putIfNonNull( object, "allowEmpty", allowEmpty );
+		putIfNonNull( object, "allowEmpty", disabled );
 		putIfNonNull( object, "pattern", pattern );
 		putIfNonNull( object, "default", defaultValue );
 		
@@ -111,15 +119,13 @@ public class FormField extends FormItem
 		
 		putIfNonNull( object, "key", getFullPath() );
 		putIfNonNull( object, "type", uiType );
-		putIfNonNull( object, "title", getKey() );
 		putIfNonNull( object, "prepend", prepend );
 		putIfNonNull( object, "append", append );
 		putIfNonNull( object, "placeholder", placeholder );
-		putIfNonNull( object, "pattern", pattern );
 		putIfNonNull( object, "htmlClass", cssClass );
 		putIfNonNull( object, "fieldHtmlClass", inputCssClass );
 		putIfNonNull( object, "noTitle", noTitle );
-		putIfNonNull( object, "allowEmpty", allowEmpty );
+		putIfNonNull( object, "disabled", disabled );
 		putIfNonNull( object, "condition", condition );
 		
 		if ( enumValues != null )
@@ -149,6 +155,9 @@ public class FormField extends FormItem
 			final String key = me.getKey();
 			switch( key )
 			{
+			case TITLE_KEY: setIfValid( AnnotationUtils.getPropertyValue(
+					properties, TITLE_KEY, String.class ), value -> title=value );
+				break;
 			case CONDITION_KEY: setIfValid( AnnotationUtils.getPropertyValue(
 					properties, CONDITION_KEY, String.class ), value -> condition=value );
 				break;
@@ -182,8 +191,8 @@ public class FormField extends FormItem
 			case NOTITLE_KEY: setIfValid( AnnotationUtils.getPropertyValue(
 							properties, NOTITLE_KEY, Boolean.class ), value -> noTitle=value );
 				break;
-			case ALLOW_EMPTY_KEY: setIfValid( AnnotationUtils.getPropertyValue(
-							properties, ALLOW_EMPTY_KEY, Boolean.class ), value -> allowEmpty=value );
+			case DISABLED_KEY: setIfValid( AnnotationUtils.getPropertyValue(
+							properties, DISABLED_KEY, Boolean.class ), value -> disabled=value );
 				break;
 			case CSS_CLASS_KEY: setIfValid( AnnotationUtils.getPropertyValue(
 							properties, CSS_CLASS_KEY, String.class ), value -> cssClass=value );
@@ -206,7 +215,7 @@ public class FormField extends FormItem
 		if ( values instanceof String )
 		{
 			String ss = (String) values;
-			if ( !ss.isBlank() )
+			if ( !ss.isEmpty() )
 			{
 				return Arrays.stream(ss.split(","))
 						.map(s -> s.trim())
@@ -219,13 +228,28 @@ public class FormField extends FormItem
 	private static FormField getDefaultInput( Element element, TypeUtils typeUtils, String configPath, Object defaultValue, Object...enumValues )
 	{
 		FormField field = new FormField( configPath, createKey( element ), typeUtils.getJavaDoc(element) );
-		field.type = Type.fromJavaType( typeUtils.getType( element.asType() ) );
-		field.defaultValue = defaultValue;
-		field.enumValues = enumValues;
+		if ( isConvertable( element ) )
+		{
+			field.type = Type.String;
+		}
+		else
+		{
+			field.type = Type.fromJavaType( typeUtils.getType( element.asType() ), Type.String );
+			field.defaultValue = defaultValue;
+			field.enumValues = enumValues;
+		}
+		
+		// use capitalized key as default title
+		String key = field.getKey();
+		if ( key != null )
+		{
+			field.title = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+		}
+		
 		return field;
 	}
-	
-	private static enum Type {
+		
+	public static enum Type {
 		String("string", "java.lang.String", "java.lang.CharSequence"),
 		Boolean("boolean", "java.lang.Boolean"),
 		Integer( "integer", "java.lang.Integer", "java.lang.Short" ),
@@ -240,7 +264,7 @@ public class FormField extends FormItem
 			this.javaType = Arrays.asList(javaTypes);
 		}
 		
-		public static Type fromJavaType( String javaType )
+		public static Type fromJavaType( String javaType, Type defaultType )
 		{
 			for ( Type type : values() )
 			{
@@ -249,7 +273,7 @@ public class FormField extends FormItem
 					return type;
 				}
 			}
-			return String;
+			return defaultType;
 		}
 		
 		public String toString()

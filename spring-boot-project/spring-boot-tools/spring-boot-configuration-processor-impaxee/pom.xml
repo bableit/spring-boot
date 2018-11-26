@@ -39,4 +39,12 @@
 			</plugin>
 		</plugins>
 	</build>
+	  <distributionManagement>
+	    <repository>
+	      <id>mavenproxyvienna</id>
+	      <name>mavenproxyvienna</name>
+	      <url>http://mavenproxyvienna.agfahealthcare.com:8000/repository/maven-snapshots/</url>
+	    </repository>
+	  </distributionManagement>
+	  <groupId>com.agfa.ee</groupId>
 </project>

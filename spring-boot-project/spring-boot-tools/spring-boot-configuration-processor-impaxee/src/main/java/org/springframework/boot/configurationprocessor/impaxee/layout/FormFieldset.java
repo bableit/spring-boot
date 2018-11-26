@@ -58,7 +58,10 @@ public class FormFieldset
 	{
 		JSONObject object = new JSONObject();
 		object.put("type", "fieldset" );
-		object.put("title", key );
+		if ( key != null && !key.isEmpty() )
+		{
+			object.put("title", key );
+		}
 		return object;
 	}	
 	

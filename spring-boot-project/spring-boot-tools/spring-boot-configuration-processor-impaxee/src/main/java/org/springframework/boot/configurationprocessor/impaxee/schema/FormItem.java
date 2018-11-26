@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.VariableElement;
 
 import org.springframework.boot.configurationprocessor.impaxee.AnnotationUtils;
 import org.springframework.boot.configurationprocessor.impaxee.json.JSONException;
@@ -123,9 +124,23 @@ public abstract class FormItem
 	{
 		if ( value != null )
 		{
-			if ( value instanceof String && ((String)value).isBlank())
-				return;
-			c.accept(value);
+			Class<?> clazz = value.getClass();
+			if ( String.class.isAssignableFrom( clazz ) && !String.class.cast(value).isEmpty() )
+			{
+				c.accept(value);
+			}
+			else if ( Boolean.class.isAssignableFrom( clazz ) && Boolean.class.cast(value) == true )
+			{
+				c.accept(value);
+			}
+			else if ( Integer.class.isAssignableFrom( clazz ) && Integer.class.cast(value) != -1 )
+			{
+				c.accept(value);
+			}
+			else if ( Number.class.isAssignableFrom( clazz ) && Number.class.cast(value).intValue() != -1 )
+			{
+				c.accept(value);
+			}
 		}
 	}
 	
@@ -139,7 +154,11 @@ public abstract class FormItem
 	
 	public static String createKey( Element element )
 	{
-		return element.getSimpleName().toString();
+		if ( element instanceof VariableElement )
+		{
+			return element.getSimpleName().toString();
+		}
+		return null;
 	}
 	
 	public abstract JSONObject toJSONSchema() throws JSONException;

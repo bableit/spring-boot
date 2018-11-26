@@ -37,6 +37,8 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -63,9 +65,9 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 	private static final String NESTED_CONFIGURATION_PROPERTY_ANNOTATION = "org.springframework.boot."
 			+ "context.properties.NestedConfigurationProperty";
 	
-	private static final String FORM_SCHEMA_PATH = "META-INF/configform-schema.json";
+	private static final String FORM_SCHEMA_PATH = "static/configform/configform-schema.json";
 	
-	private static final String FORM_LAYOUT_PATH = "META-INF/configform-layout.json";
+	private static final String FORM_LAYOUT_PATH = "static/configform/configform-layout.json";
 
 	private static final String LOMBOK_DATA_ANNOTATION = "lombok.Data";
 
@@ -153,7 +155,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		}
 		catch (Exception ex)
 		{
-			throw new IllegalStateException( "Error processing configuration form data on " + element, ex);
+			throw new IllegalStateException( "Error processing configuration form on " + element, ex);
 		}
 		return Collections.emptyList();
 	}
@@ -177,19 +179,35 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 	{
 		List<FormItem> elements = null;
 		
-		TypeElementMembers members = new TypeElementMembers(this.processingEnv, this.fieldValuesParser, element);
-		Map<String, Object> fieldValues = members.getFieldValues();
+		if ( element.getKind() == ElementKind.ENUM )
+		{
+			return Collections.singletonList( FormField.create(element, typeUtils, configPath, null, getEnumValues(element)));
+		}
+		else 
+		{
+			FormField.Type type = FormField.Type.fromJavaType( typeUtils.getType( element.asType() ), null );
+			
+			if ( type != null )
+			{
+				return Collections.singletonList( FormField.create(element, typeUtils, configPath, null, getEnumValues(element) ) );
+			}
+			else 
+			{
+				TypeElementMembers members = new TypeElementMembers(this.processingEnv, this.fieldValuesParser, element);
+				Map<String, Object> fieldValues = members.getFieldValues();
+				
+				elements = addToList( elements, 
+						processSimpleTypes(configPath, form, element, source, members, fieldValues, addToBuilder ) );
+				elements = addToList( elements, 
+						processSimpleLombokTypes(configPath, form,  element, source, members, fieldValues, addToBuilder ) );
+				elements = addToList( elements, 
+						processNestedOrCollectionTypes(configPath, form, element, source, members, addToBuilder) );
+				elements = addToList( elements, 
+						processNestedOrCollectionLombokTypes(configPath, form, element, source, members, addToBuilder ) );
 		
-		elements = addToList( elements, 
-				processSimpleTypes(configPath, form, element, source, members, fieldValues, addToBuilder ) );
-		elements = addToList( elements, 
-				processSimpleLombokTypes(configPath, form,  element, source, members, fieldValues, addToBuilder ) );
-		elements = addToList( elements, 
-				processNestedOrCollectionTypes(configPath, form, element, source, members, addToBuilder) );
-		elements = addToList( elements, 
-				processNestedOrCollectionLombokTypes(configPath, form, element, source, members, addToBuilder ) );
-		
-		return elements;
+				return elements;
+			}
+		}
 	}
 
 	private List<FormItem> processSimpleTypes(String configPath, Form form, TypeElement element,
@@ -197,16 +215,15 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			Map<String, Object> fieldValues, boolean addToBuilder) 
 	{
 		List<FormItem> items = null;
-		for ( Map.Entry<String, ExecutableElement> me : members.getPublicGetters().entrySet() )
+		for ( Map.Entry<String, VariableElement> me : members.getFields().entrySet() )
 		{
 			String name = me.getKey();
-			TypeMirror returnType =  me.getValue().getReturnType();
-			VariableElement field = members.getFields().get(name);
-			boolean hasSetter = members.getPublicSetter(name, returnType) != null;
+			VariableElement field = me.getValue();
+			boolean hasSetter = members.getPublicSetter(name, field.asType()) != null;
 
 			if ( hasSetter )
 			{
-				FormItem item = processSimpleType( configPath, form, element, returnType, field, fieldValues.get(name) );
+				FormItem item = processSimpleType( configPath, form, element, field, fieldValues.get(name) );
 				if ( item != null )
 				{
 					items = addFormItem( form, item, items, addToBuilder );
@@ -225,9 +242,9 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		{
 			VariableElement field = me.getValue();
 
-			if (isLombokField(field, element) && hasLombokSetter( field, element )) 
+			if ( isLombokField(field, element) && hasLombokSetter( field, element ) ) 
 			{
-				FormItem item = processSimpleType( configPath, form, element, field.asType(), field, fieldValues.get(me.getKey() ) );
+				FormItem item = processSimpleType( configPath, form, element, field, fieldValues.get(me.getKey() ) );
 				if ( item != null )
 				{
 					items = addFormItem( form, item, items, addToBuilder );
@@ -242,10 +259,12 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			ExecutableElement source, TypeElementMembers members, boolean addToBuilder ) 
 	{
 		List<FormItem> items = null;
-		for ( Map.Entry<String, ExecutableElement> me : members.getPublicGetters().entrySet() )
+		for ( Map.Entry<String, VariableElement> me : members.getFields().entrySet() )
 		{
-			VariableElement field = members.getFields().get(me.getKey());
-			FormFieldGroup group = processNestedOrCollectionType( configPath, form, element, source, me.getValue(), field);
+			VariableElement field = me.getValue();
+			ExecutableElement getter = members.getPublicGetter( me.getKey(), field.asType());
+			
+			FormFieldGroup group = processNestedOrCollectionType( configPath, form, element, source, getter, field);
 			if ( group != null )
 			{
 				items = addFormItem( form, group, items, addToBuilder );
@@ -253,23 +272,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		};
 		return items;
 	}
-	
-	private FormField processSimpleType( String configPath, Form form, TypeElement element, TypeMirror returnType, VariableElement field, Object defaultValue )
-	{
-		Element returnTypeElement = this.processingEnv.getTypeUtils().asElement(returnType);
-
-		boolean isNested = isNested(returnTypeElement, field, element);
-		boolean isCollection = this.typeUtils.isCollectionOrMap(returnType);
-		boolean isArray = returnType.getKind() == TypeKind.ARRAY;
 		
-		if ( !isNested && !isCollection && !isArray )
-		{
-			return FormField.create(field, typeUtils, configPath, defaultValue, getEnumValues( field ) );
-		}
-		
-		return null;
-	}
-	
 	private List<FormItem> processNestedOrCollectionLombokTypes(String configPath, Form form, TypeElement element,
 			ExecutableElement source, TypeElementMembers members, boolean addToBuilder ) 
 	{
@@ -278,9 +281,10 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		{
 			VariableElement field = me.getValue();
 
-			if (isLombokField(field, element)) 
+			if ( isLombokField(field, element) ) 
 			{
 				ExecutableElement getter = members.getPublicGetter( me.getKey(), field.asType());
+				
 				FormFieldGroup group = processNestedOrCollectionType( configPath, form, element, source, getter, field );
 				if ( group != null )
 				{
@@ -291,24 +295,78 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		return items;
 	}
 	
+	private FormField processSimpleType( String configPath, Form form, TypeElement element, VariableElement field, Object defaultValue )
+	{
+		if ( field != null && !isFinal( field ) )
+		{
+			TypeMirror returnType = field.asType();
+			Element typeElement = this.processingEnv.getTypeUtils().asElement(returnType);
+			boolean isNested = isNested(typeElement, field, element) && !FormField.isConvertable(typeElement);
+			boolean isCollectionOrMap = this.typeUtils.isCollectionOrMap(returnType);
+			boolean isArray = returnType.getKind() == TypeKind.ARRAY;
+	
+			if ( !isNested && !isCollectionOrMap && !isArray )
+			{
+				return FormField.create(field, typeUtils, configPath, defaultValue, getEnumValues( field ) );
+			}
+		}
+		
+		return null;
+	}
+	
 	private FormFieldGroup processNestedOrCollectionType( String configPath, Form form, TypeElement element, 
 			ExecutableElement source, ExecutableElement getter, VariableElement field )
 	{
-		TypeMirror returnType = getter.getReturnType();
-		Element returnElement = this.processingEnv.getTypeUtils().asElement(returnType);
-		boolean isNested = isNested(returnElement, field, element);
-		boolean isCollection = this.typeUtils.isCollectionOrMap(returnType);
-		boolean isArray = returnType.getKind() == TypeKind.ARRAY;
-		AnnotationMirror annotation = AnnotationUtils.getAnnotation(getter,
-				AnnotationUtils.CONFIGURATION_PROPERTIES_ANNOTATION);
-		
-		if (returnElement instanceof TypeElement && annotation == null && 
-				( isNested || isCollection || isArray ) ) 
+		AnnotationMirror annotation = AnnotationUtils.getAnnotation(getter, AnnotationUtils.CONFIGURATION_PROPERTIES_ANNOTATION);
+		if ( annotation == null )
 		{
-			String path = configPath + "." + FormItem.createKey(returnElement);
-			List<FormItem> subItems = processTypeElement( path, form, (TypeElement) returnElement, source, false );
-			return FormFieldGroup.create( isNested ? GroupType.Nested : isCollection ? 
-					GroupType.Collection : GroupType.Array,  field, subItems, typeUtils, configPath );
+			TypeMirror type = field.asType();
+			Element typeElement = this.processingEnv.getTypeUtils().asElement(type);
+			boolean isNested = isNested(typeElement, field, element) && !FormField.isConvertable(typeElement);
+			boolean isCollection = this.typeUtils.isCollection(type);
+			boolean isMap = this.typeUtils.isMap(type);
+			boolean isArray = type.getKind() == TypeKind.ARRAY;
+			
+			if ( isMap )
+			{
+				logWarning( String.format( "Skipping configuration field ['%s' in %s]: Type declaration of field is java.lang.Map", 
+						field, form.getElement() ) ); 
+			}
+			else if (typeElement instanceof TypeElement && ( isNested || isCollection || isArray ) ) 
+			{
+				List<FormItem> subItems = Collections.emptyList();
+				if ( isNested )
+				{
+					String path = configPath + "." + FormItem.createKey(typeElement);
+					subItems = processTypeElement( path, form, (TypeElement) typeElement, source, false );
+				}
+				else if ( type instanceof DeclaredType )
+				{
+					String path = configPath + "[]." + FormItem.createKey(typeElement);
+					
+					if ( isCollection )
+					{
+						List<? extends TypeMirror> typeArgs = ((DeclaredType)type).getTypeArguments();
+						if ( typeArgs == null || typeArgs.size() != 1 )
+						{
+							logWarning( String.format("Skipping configuration field ['%s' in %s]: Type declaration of field is a generic collection type, but without any type arguments.",
+									field, form.getElement() ) );
+						}
+						else
+						{
+							subItems = processTypeElement( path, form, asTypeElement(typeArgs.get(0)), source, false );
+						}
+					}
+					else if ( isArray )
+					{
+						TypeMirror componentType = ((ArrayType)type).getComponentType();
+						subItems = processTypeElement( path, form, asTypeElement( componentType ), source, false );
+					}
+				}
+				
+				return FormFieldGroup.create( isNested ? GroupType.Nested : isCollection ? 
+						GroupType.Collection : GroupType.Array,  field, subItems, typeUtils, configPath );
+			}
 		}
 		
 		return null;
@@ -327,6 +385,11 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			return addToList( items, Collections.singletonList( item ) );
 		}
 		return items;
+	}
+	
+	private TypeElement asTypeElement( TypeMirror typeMirror )
+	{
+		return (TypeElement ) processingEnv.getTypeUtils().asElement( typeMirror );
 	}
 		
 	private void logWarning(String msg) {
@@ -398,6 +461,11 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		}
 		return isCyclePresent(returnType, element.getEnclosingElement());
 	}
+	
+    private static boolean isFinal(Element element) 
+    {
+        return element.getModifiers().contains(Modifier.FINAL);
+    }
 
 	private static boolean isParentTheSame(Element returnType, TypeElement element) 
 	{
@@ -446,15 +514,20 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		return list;
 	}
 	
-	private Object[] getEnumValues( VariableElement element )
+	private Object[] getEnumValues( Element element )
 	{
-		Element enumType = processingEnv.getTypeUtils().asElement( element.asType() );
-		if ( enumType.getKind() == ElementKind.ENUM )
+		if ( element != null )
 		{
-			return enumType.getEnclosedElements().stream()
-					.filter( e -> e.getKind() == ElementKind.ENUM_CONSTANT )
-					.map( e -> e.getSimpleName() )
-					.toArray();
+			Element enumType = element instanceof TypeElement ? element :
+					processingEnv.getTypeUtils().asElement( element.asType() );
+			
+			if ( enumType != null && enumType.getKind() == ElementKind.ENUM )
+			{
+				return enumType.getEnclosedElements().stream()
+						.filter( e -> e.getKind() == ElementKind.ENUM_CONSTANT )
+						.map( e -> e.getSimpleName() )
+						.toArray();
+			}
 		}
 		return null;
 	}	

@@ -78,11 +78,14 @@ class TypeElementMembers {
 			processField(field);
 		}
 		try {
-			this.fieldValuesParser.getFieldValues(element).forEach((name, value) -> {
-				if (!this.fieldValues.containsKey(name)) {
-					this.fieldValues.put(name, value);
-				}
-			});
+			if ( this.fieldValuesParser != null )
+			{
+				this.fieldValuesParser.getFieldValues(element).forEach((name, value) -> {
+					if (!this.fieldValues.containsKey(name)) {
+						this.fieldValues.put(name, value);
+					}
+				});
+			}
 		}
 		catch (Exception ex) {
 			// continue

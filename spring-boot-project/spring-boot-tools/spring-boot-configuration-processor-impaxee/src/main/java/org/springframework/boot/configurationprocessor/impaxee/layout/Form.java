@@ -15,11 +15,15 @@ public class Form
 	private static final String SECTION_KEY = "section";
 	private static final String FIELDSET_KEY = "fieldset";
 
+	private final Element formElement;
 	private String topic;
 	private String section;
 	private String fieldset;
 
-	private Form(){}
+	private Form( Element formElement )
+	{
+		this.formElement = formElement;
+	}
 		
 	public static Form create( Element element, String configPath )
 	{
@@ -33,6 +37,10 @@ public class Form
 		
 		return form;
 	}	
+	
+	public Element getElement() {
+		return formElement;
+	}
 
 	public String getTopic() {
 		return topic;
@@ -47,11 +55,11 @@ public class Form
 	}
 	
 	public void adjustFormItem( FormItem item ) {
-		if ( item.getTopic()==null || item.getTopic().isBlank() )
+		if ( item.getTopic()==null || item.getTopic().isEmpty() )
 			item.setTopic( topic );
-		if ( item.getSection()==null || item.getSection().isBlank() )
+		if ( item.getSection()==null || item.getSection().isEmpty() )
 			item.setSection( section );
-		if ( item.getFieldset()==null || item.getFieldset().isBlank() )
+		if ( item.getFieldset()==null || item.getFieldset().isEmpty() )
 			item.setFieldset( fieldset );
 	}
 	
@@ -77,19 +85,19 @@ public class Form
 	
 	private static Form getDefaultForm( Element element, String configPath )
 	{
-		Form form = new Form();
+		Form form = new Form( element );
 		
 		if ( configPath != null && configPath.length()>0 )
 		{
 			String[] parts = configPath.split("\\.");
 			if ( parts.length >= 1 )
 			{
-				form.topic = parts[0];
+				form.section = parts[0];
 			}
 			
 			if ( parts.length > 1 )
 			{
-				form.section = configPath.substring( 
+				form.fieldset = configPath.substring( 
 						configPath.indexOf(".") + 1 );
 			}
 		}
@@ -101,7 +109,7 @@ public class Form
 	{
 		if ( value != null )
 		{
-			if ( value instanceof String && ((String)value).isBlank())
+			if ( value instanceof String && ((String)value).isEmpty())
 				return;
 			c.accept(value);
 		}

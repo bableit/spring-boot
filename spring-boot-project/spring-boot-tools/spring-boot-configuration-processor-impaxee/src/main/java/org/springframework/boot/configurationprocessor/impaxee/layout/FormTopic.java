@@ -10,7 +10,7 @@ import org.springframework.boot.configurationprocessor.impaxee.json.JSONObject;
 
 public class FormTopic 
 {	
-	private final FormSection defaultSection = new FormSection( "defaultSection" );
+	private final FormSection defaultSection = new FormSection("");
 	
 	private final String key;
 	private Map<String, FormSection> sections;
@@ -39,7 +39,7 @@ public class FormTopic
 		}
 		
 		FormSection section = defaultSection;
-		if ( sectionKey!=null && !sectionKey.isBlank() )
+		if ( sectionKey!=null && !sectionKey.isEmpty() )
 		{
 			section = sections.get(sectionKey);
 			if ( section == null )
@@ -75,8 +75,11 @@ public class FormTopic
 	{
 		JSONObject object = new JSONObject();
 		object.put("type", "section");
-		object.put("title", key );
-		object.put("condition", "topicSelected=="+key );
+		if ( key != null && !key.isEmpty() )
+		{
+			object.put("title", key );
+		}
+//		object.put("condition", "topicSelected=="+key );
 		return object;
 	}
 	

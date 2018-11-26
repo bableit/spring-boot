@@ -126,8 +126,15 @@ public class TypeUtils {
 	}
 
 	public boolean isCollectionOrMap(TypeMirror type) {
-		return this.env.getTypeUtils().isAssignable(type, this.collectionType)
-				|| this.env.getTypeUtils().isAssignable(type, this.mapType);
+		return isCollection( type ) || isMap( type );
+	}
+	
+	public boolean isCollection( TypeMirror type ) {
+		return this.env.getTypeUtils().isAssignable(type, this.collectionType);
+	}
+	
+	public boolean isMap( TypeMirror type ) {
+		return this.env.getTypeUtils().isAssignable(type, this.mapType);
 	}
 
 	public String getJavaDoc(Element element) {
