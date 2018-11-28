@@ -1,11 +1,10 @@
 package org.springframework.boot.configurationprocessor.impaxee.schema;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.VariableElement;
 
 import org.springframework.boot.configurationprocessor.impaxee.AnnotationUtils;
 import org.springframework.boot.configurationprocessor.impaxee.json.JSONException;
@@ -26,6 +25,8 @@ public abstract class FormItem
 	private String section;
 	private String fieldset;
 		
+	private Optional<FormFieldGroup> parentGroup;
+		
 	protected FormItem( String path, String key )
 	{
 		this( path, key, null );
@@ -36,6 +37,7 @@ public abstract class FormItem
 		this.path = path;
 		this.key = key;
 		this.javaDoc = javaDoc;
+		this.parentGroup = Optional.empty();
 	}
 	
 	public String getPath() 
@@ -76,6 +78,15 @@ public abstract class FormItem
 		this.fieldset = fieldset;
 	}
 	
+	protected FormFieldGroup getParentGroup() {
+		return parentGroup.orElse(null);
+	}
+	
+	protected void setParentGroup( FormFieldGroup group )
+	{
+		this.parentGroup = Optional.ofNullable( group );
+	}
+	
 	protected final String getFullPath()
 	{
 		StringBuilder s = new StringBuilder();
@@ -83,6 +94,7 @@ public abstract class FormItem
 		{
 			s.append(path.trim());
 		}
+
 		if ( key != null )
 		{
 			if ( s.length()>0 )
@@ -151,16 +163,7 @@ public abstract class FormItem
 			object.put(key, value);
 		}
 	}
-	
-	public static String createKey( Element element )
-	{
-		if ( element instanceof VariableElement )
-		{
-			return element.getSimpleName().toString();
-		}
-		return null;
-	}
-	
+		
 	public abstract JSONObject toJSONSchema() throws JSONException;
 	
 	public abstract JSONObject toJSONLayout() throws JSONException;

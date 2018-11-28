@@ -334,15 +334,19 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			}
 			else if (typeElement instanceof TypeElement && ( isNested || isCollection || isArray ) ) 
 			{
+				FormFieldGroup group = FormFieldGroup.create( isNested ? GroupType.Nested : isCollection ? 
+						GroupType.Collection : GroupType.Array,  field, typeUtils, configPath );
+				
+				String groupPath = configPath + "." + group.getKey();
+				
 				List<FormItem> subItems = Collections.emptyList();
 				if ( isNested )
 				{
-					String path = configPath + "." + FormItem.createKey(typeElement);
-					subItems = processTypeElement( path, form, (TypeElement) typeElement, source, false );
+					subItems = processTypeElement( groupPath , form, (TypeElement) typeElement, source, false );
 				}
 				else if ( type instanceof DeclaredType )
 				{
-					String path = configPath + "[]." + FormItem.createKey(typeElement);
+					groupPath += "[]";
 					
 					if ( isCollection )
 					{
@@ -354,18 +358,19 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 						}
 						else
 						{
-							subItems = processTypeElement( path, form, asTypeElement(typeArgs.get(0)), source, false );
+							subItems = processTypeElement( groupPath, form, asTypeElement(typeArgs.get(0)), source, false );
 						}
 					}
 					else if ( isArray )
 					{
 						TypeMirror componentType = ((ArrayType)type).getComponentType();
-						subItems = processTypeElement( path, form, asTypeElement( componentType ), source, false );
+						subItems = processTypeElement( groupPath, form, asTypeElement( componentType ), source, false );
 					}
 				}
 				
-				return FormFieldGroup.create( isNested ? GroupType.Nested : isCollection ? 
-						GroupType.Collection : GroupType.Array,  field, subItems, typeUtils, configPath );
+				group.setItems(subItems);
+				
+				return group;
 			}
 		}
 		

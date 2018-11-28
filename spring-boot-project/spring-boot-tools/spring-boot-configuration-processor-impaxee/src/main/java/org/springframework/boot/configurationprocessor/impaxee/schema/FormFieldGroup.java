@@ -36,9 +36,9 @@ public class FormFieldGroup extends FormItem
 		this.type = type;
 	}
 		
-	public static FormFieldGroup create( GroupType type, Element element, List<FormItem> childElements, TypeUtils typeUtils, String configPath )
+	public static FormFieldGroup create( GroupType type, Element element, TypeUtils typeUtils, String configPath )
 	{
-		FormFieldGroup object = getDefaultObject( type, element, childElements, typeUtils, configPath );
+		FormFieldGroup object = getDefaultObject( type, element, typeUtils, configPath );
 		
 		AnnotationMirror annotation = AnnotationUtils.getAnnotation(element, AnnotationUtils.FORM_GROUP_ANNOTATION);
 		if ( annotation != null )
@@ -69,6 +69,20 @@ public class FormFieldGroup extends FormItem
 		return Collections.unmodifiableList(items);
 	}
 	
+	public void setItems( List<FormItem> items )
+	{
+		this.items.clear();
+		if ( items != null )
+		{
+			for ( FormItem item : items )
+			{
+				item.setParentGroup(this);
+				
+				this.items.add(item);
+			}
+		}
+	}
+	
 	@Override
 	public JSONObject toJSONSchema() throws JSONException
 	{
@@ -91,6 +105,18 @@ public class FormFieldGroup extends FormItem
 				{
 					object.put( "items", items.get(0).toJSONSchema() );
 				}
+				else
+				{
+					JSONObject itemObject = new JSONObject();
+					itemObject.put("type", "object" );
+					
+					for ( FormItem item : items )
+					{
+						itemObject.put( item.getKey(), item.toJSONSchema() );
+					}
+					
+					object.put( "items", itemObject );
+				}
 			}
 		}
 		
@@ -107,9 +133,21 @@ public class FormFieldGroup extends FormItem
 		JSONArray array = new JSONArray();
 		if ( items != null )
 		{
-			for ( FormItem item : items )
+			if ( items.size() == 1 && (isArray() || isCollection() ) )
 			{
-				array.put( item.toJSONLayout() );
+				FormItem item = items.get(0);
+				JSONObject itemJSON = item.toJSONLayout();
+				putIfNonNull( itemJSON, "key", getPath() );
+				array.put(itemJSON);
+			}
+			else
+			{
+				for ( FormItem item : items )
+				{
+					JSONObject itemJSON = item.toJSONLayout();
+					putIfNonNull( itemJSON, "key", item.getFullPath() );
+					array.put( itemJSON );
+				}
 			}
 		}
 		
@@ -133,12 +171,6 @@ public class FormFieldGroup extends FormItem
 		}
 		
 		return object;
-	}
-	
-	private FormFieldGroup addItems( List<FormItem> childElements )
-	{
-		this.items.addAll(childElements);
-		return this;
 	}
 	
 	@Override
@@ -171,7 +203,12 @@ public class FormFieldGroup extends FormItem
 		}
 	}
 	
-	private static FormFieldGroup getDefaultObject( GroupType type, Element element, List<FormItem> items, TypeUtils typeUtils, String configPath )
+	private static String createKey( Element element )
+	{
+		return element.getSimpleName().toString();
+	}
+	
+	private static FormFieldGroup getDefaultObject( GroupType type, Element element, TypeUtils typeUtils, String configPath )
 	{
 		FormFieldGroup group = new FormFieldGroup(type, configPath, createKey(element), typeUtils.getJavaDoc(element));
 		
@@ -181,11 +218,7 @@ public class FormFieldGroup extends FormItem
 		{
 			group.title = Character.toUpperCase(key.charAt(0)) + key.substring(1);
 		}
-		
-		if ( items != null )
-		{
-			group.addItems(items);
-		}
+
 		return group;
 	}
 

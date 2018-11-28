@@ -80,13 +80,13 @@ public class FormField extends FormItem
 	{
 		JSONObject object = new JSONObject();
 		putIfNonNull( object, "type", type );
-		putIfNonNull( object, "title", title );
 		putIfNonNull( object, "description", getJavaDoc() );
 		putIfNonNull( object, "readOnly", readOnly );
 		putIfNonNull( object, "required", required );
 		putIfNonNull( object, "allowEmpty", disabled );
 		putIfNonNull( object, "pattern", pattern );
 		putIfNonNull( object, "default", defaultValue );
+		putIfNonNull( object, "title", title );
 		
 		if ( enumValues != null && enumValues.length>0 )
 		{
@@ -116,8 +116,7 @@ public class FormField extends FormItem
 	public JSONObject toJSONLayout() throws JSONException
 	{
 		JSONObject object = new JSONObject();
-		
-		putIfNonNull( object, "key", getFullPath() );
+
 		putIfNonNull( object, "type", uiType );
 		putIfNonNull( object, "prepend", prepend );
 		putIfNonNull( object, "append", append );
@@ -209,7 +208,7 @@ public class FormField extends FormItem
 			}
 		}
 	}
-	
+		
 	private static Object[] parseEnumValues( Object values )
 	{
 		if ( values instanceof String )
@@ -223,6 +222,11 @@ public class FormField extends FormItem
 			}
 		}
 		return null;
+	}
+	
+	private static String createKey( Element element )
+	{
+		return element.getSimpleName().toString();
 	}
 	
 	private static FormField getDefaultInput( Element element, TypeUtils typeUtils, String configPath, Object defaultValue, Object...enumValues )
