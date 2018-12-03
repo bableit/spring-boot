@@ -87,7 +87,7 @@ public abstract class FormItem
 		this.parentGroup = Optional.ofNullable( group );
 	}
 	
-	protected final String getFullPath()
+	public final String getFullPath()
 	{
 		StringBuilder s = new StringBuilder();
 		if ( path != null )

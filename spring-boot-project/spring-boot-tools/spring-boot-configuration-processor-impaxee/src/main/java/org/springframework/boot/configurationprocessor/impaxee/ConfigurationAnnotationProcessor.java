@@ -65,9 +65,9 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 	private static final String NESTED_CONFIGURATION_PROPERTY_ANNOTATION = "org.springframework.boot."
 			+ "context.properties.NestedConfigurationProperty";
 	
-	private static final String FORM_SCHEMA_PATH = "static/configform/configform-schema.json";
+	private static final String FORM_SCHEMA_PATH = "static/configeditor/configform-schema.json";
 	
-	private static final String FORM_LAYOUT_PATH = "static/configform/configform-layout.json";
+	private static final String FORM_LAYOUT_PATH = "static/configeditor/configform-layout.json";
 
 	private static final String LOMBOK_DATA_ANNOTATION = "lombok.Data";
 
@@ -195,16 +195,19 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			{
 				TypeElementMembers members = new TypeElementMembers(this.processingEnv, this.fieldValuesParser, element);
 				Map<String, Object> fieldValues = members.getFieldValues();
-				
+
 				elements = addToList( elements, 
 						processSimpleTypes(configPath, form, element, source, members, fieldValues, addToBuilder ) );
+
 				elements = addToList( elements, 
 						processSimpleLombokTypes(configPath, form,  element, source, members, fieldValues, addToBuilder ) );
+
 				elements = addToList( elements, 
 						processNestedOrCollectionTypes(configPath, form, element, source, members, addToBuilder) );
+
 				elements = addToList( elements, 
 						processNestedOrCollectionLombokTypes(configPath, form, element, source, members, addToBuilder ) );
-		
+
 				return elements;
 			}
 		}
@@ -221,7 +224,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			VariableElement field = me.getValue();
 			boolean hasSetter = members.getPublicSetter(name, field.asType()) != null;
 
-			if ( hasSetter )
+			if ( hasSetter && !(isLombokField(field, element) && hasLombokSetter( field, element )))
 			{
 				FormItem item = processSimpleType( configPath, form, element, field, fieldValues.get(name) );
 				if ( item != null )
@@ -262,12 +265,15 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		for ( Map.Entry<String, VariableElement> me : members.getFields().entrySet() )
 		{
 			VariableElement field = me.getValue();
-			ExecutableElement getter = members.getPublicGetter( me.getKey(), field.asType());
-			
-			FormFieldGroup group = processNestedOrCollectionType( configPath, form, element, source, getter, field);
-			if ( group != null )
+			if ( !isLombokField(field, element) )
 			{
-				items = addFormItem( form, group, items, addToBuilder );
+				ExecutableElement getter = members.getPublicGetter( me.getKey(), field.asType());
+				
+				FormFieldGroup group = processNestedOrCollectionType( configPath, form, element, source, getter, field);
+				if ( group != null )
+				{
+					items = addFormItem( form, group, items, addToBuilder );
+				}
 			}
 		};
 		return items;
@@ -347,7 +353,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 				else if ( type instanceof DeclaredType )
 				{
 					groupPath += "[]";
-					
+
 					if ( isCollection )
 					{
 						List<? extends TypeMirror> typeArgs = ((DeclaredType)type).getTypeArguments();

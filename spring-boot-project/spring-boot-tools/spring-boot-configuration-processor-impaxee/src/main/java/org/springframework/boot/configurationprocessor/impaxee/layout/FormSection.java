@@ -74,8 +74,7 @@ public class FormSection
 	private JSONObject createJSON() throws JSONException
 	{
 		JSONObject object = new JSONObject();
-		object.put("type", fieldsets != null && fieldsets.size() > 1 ?
-				"tabarray" :"section");
+		object.put("type", "section" );
 		if ( key != null && !key.isEmpty() )
 		{
 			object.put("title", key );

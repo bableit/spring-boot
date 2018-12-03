@@ -5,6 +5,7 @@ import java.util.TreeMap;
 
 import org.springframework.boot.configurationprocessor.impaxee.json.JSONArray;
 import org.springframework.boot.configurationprocessor.impaxee.json.JSONException;
+import org.springframework.boot.configurationprocessor.impaxee.json.JSONObject;
 import org.springframework.boot.configurationprocessor.impaxee.schema.FormItem;
 
 public class FormLayoutBuilder 
@@ -24,10 +25,16 @@ public class FormLayoutBuilder
 	public JSONArray buildLayout() throws JSONException
 	{
 		JSONArray array = new JSONArray();
+		
+		// button actions
+		array.put( createActionsJSON() );
+		
+		// topics
 		for ( FormTopic topic : topics.values() )
 		{
 			array.put( topic.toJSONLayout() );
 		}
+				
 		return array;
 	}
 	
@@ -59,5 +66,28 @@ public class FormLayoutBuilder
 	private static Map<String, FormTopic> createTopicsMap()
 	{
 		return new TreeMap<>();
+	}
+	
+	private static JSONObject createActionsJSON() throws JSONException
+	{
+		JSONObject headingItem = new JSONObject();
+		headingItem.put("type", "label");
+		headingItem.put("htmlClass", "headerLabel h1");
+		
+		JSONObject saveItem = new JSONObject();
+		saveItem.put("type", "submit");
+		saveItem.put("title", "Save");
+		saveItem.put("htmlClass", "pull-right");
+		
+		JSONArray actionItems = new JSONArray();
+		actionItems.put(headingItem);
+		actionItems.put(saveItem);
+		
+		JSONObject actions = new JSONObject();
+		actions.put("type", "actions");
+		actions.put("items",actionItems);
+		actions.put("htmlClass", "header clearfix");
+		
+		return actions;
 	}
 }

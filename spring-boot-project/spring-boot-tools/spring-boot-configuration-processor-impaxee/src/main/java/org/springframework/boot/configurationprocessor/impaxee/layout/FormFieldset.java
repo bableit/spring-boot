@@ -60,7 +60,8 @@ public class FormFieldset
 		object.put("type", "fieldset" );
 		if ( key != null && !key.isEmpty() )
 		{
-			object.put("title", key );
+			object.put("expandable", true);
+			object.put("title", key.substring( key.lastIndexOf(".") + 1 ) );
 		}
 		return object;
 	}	

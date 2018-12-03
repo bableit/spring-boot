@@ -35,6 +35,7 @@ public class FormField extends FormItem
 	
 	private Type type;
 	private String title;
+	private String inlineTitle;
 	private String uiType;
 	private Integer min;
 	private Integer max;
@@ -117,13 +118,15 @@ public class FormField extends FormItem
 	{
 		JSONObject object = new JSONObject();
 
+		putIfNonNull( object, "key", getFullPath() );
 		putIfNonNull( object, "type", uiType );
+		putIfNonNull( object, "inlinetitle", inlineTitle );
 		putIfNonNull( object, "prepend", prepend );
 		putIfNonNull( object, "append", append );
 		putIfNonNull( object, "placeholder", placeholder );
 		putIfNonNull( object, "htmlClass", cssClass );
 		putIfNonNull( object, "fieldHtmlClass", inputCssClass );
-		putIfNonNull( object, "noTitle", noTitle );
+		putIfNonNull( object, "notitle", noTitle );
 		putIfNonNull( object, "disabled", disabled );
 		putIfNonNull( object, "condition", condition );
 		
@@ -242,12 +245,19 @@ public class FormField extends FormItem
 			field.defaultValue = defaultValue;
 			field.enumValues = enumValues;
 		}
-		
+
 		// use capitalized key as default title
 		String key = field.getKey();
 		if ( key != null )
 		{
 			field.title = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+		}
+		
+		// suppress title but use 'inlinetitle' instead (for checkboxes)
+		if ( field.type == Type.Boolean )
+		{
+			field.noTitle = true;
+			field.inlineTitle = field.title;
 		}
 		
 		return field;

@@ -89,17 +89,7 @@ public class Form
 		
 		if ( configPath != null && configPath.length()>0 )
 		{
-			String[] parts = configPath.split("\\.");
-			if ( parts.length >= 1 )
-			{
-				form.section = parts[0];
-			}
-			
-			if ( parts.length > 1 )
-			{
-				form.fieldset = configPath.substring( 
-						configPath.indexOf(".") + 1 );
-			}
+			form.section = configPath;
 		}
 		
 		return form;

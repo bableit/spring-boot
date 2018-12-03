@@ -74,7 +74,8 @@ public class FormTopic
 	private JSONObject createJSON() throws JSONException
 	{
 		JSONObject object = new JSONObject();
-		object.put("type", "section");
+		object.put("type", sections != null && sections.size() > 1 ?
+				"tabs" :"section");
 		if ( key != null && !key.isEmpty() )
 		{
 			object.put("title", key );
