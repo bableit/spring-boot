@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -197,15 +198,33 @@ class TypeElementMembers {
 	}
 
 	public ExecutableElement getPublicSetter(String name, TypeMirror type) {
+		return getPublicSetterForParameter( this.publicSetters.get(name), type );
+	}
+	
+	public List<ExecutableElement> getPublicSetters(String name) {
+		return this.publicSetters.get(name);
+	}
+	
+	public List<ExecutableElement> getPublicSetters(String name, int numberOfParameters ) {
 		List<ExecutableElement> candidates = this.publicSetters.get(name);
 		if (candidates != null) {
-			ExecutableElement matching = getMatchingSetter(candidates, type);
+			return candidates.stream()
+					.filter(setter -> setter.getParameters().size()==numberOfParameters)
+					.collect(Collectors.toList());
+		}
+		return Collections.emptyList();
+	}
+	
+	public ExecutableElement getPublicSetterForParameter( List<ExecutableElement> setters, TypeMirror parameterType )
+	{
+		if ( setters != null) {
+			ExecutableElement matching = getMatchingSetter(setters, parameterType );
 			if (matching != null) {
 				return matching;
 			}
-			TypeMirror alternative = this.typeUtils.getWrapperOrPrimitiveFor(type);
+			TypeMirror alternative = this.typeUtils.getWrapperOrPrimitiveFor( parameterType );
 			if (alternative != null) {
-				return getMatchingSetter(candidates, alternative);
+				return getMatchingSetter( setters, alternative);
 			}
 		}
 		return null;

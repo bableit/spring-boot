@@ -77,4 +77,5 @@
 	    </repository>
 	  </distributionManagement>
 	  <groupId>com.agfa.ee</groupId>
+	  <version>2.1.0-SNAPSHOT</version>
 </project>

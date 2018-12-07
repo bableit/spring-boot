@@ -6,6 +6,7 @@ import java.util.Map;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.type.TypeMirror;
 
 import org.springframework.boot.configurationprocessor.impaxee.AnnotationUtils;
 import org.springframework.boot.configurationprocessor.impaxee.TypeUtils;
@@ -63,9 +64,9 @@ public class FormField extends FormItem
 		return AnnotationUtils.hasAnnotation(element, AnnotationUtils.CONVERTABLE_ANNOTATION);
 	}
 	
-	public static FormField create( Element element, TypeUtils typeUtils, String configPath, Object defaultValue, Object...enumValues )
+	public static FormField create( Element element, TypeMirror type, TypeUtils typeUtils, String configPath, Object defaultValue, Object...enumValues )
 	{
-		FormField input = getDefaultInput( element, typeUtils, configPath, defaultValue, enumValues );
+		FormField input = getDefaultInput( element, type, typeUtils, configPath, defaultValue, enumValues );
 		
 		AnnotationMirror annotation = AnnotationUtils.getAnnotation(element, AnnotationUtils.FORM_FIELD_ANNOTATION);
 		if ( annotation != null )
@@ -232,35 +233,35 @@ public class FormField extends FormItem
 		return element.getSimpleName().toString();
 	}
 	
-	private static FormField getDefaultInput( Element element, TypeUtils typeUtils, String configPath, Object defaultValue, Object...enumValues )
+	private static FormField getDefaultInput( Element element, TypeMirror type, TypeUtils typeUtils, String configPath, Object defaultValue, Object...enumValues )
 	{
-		FormField field = new FormField( configPath, createKey( element ), typeUtils.getJavaDoc(element) );
+		FormField formField = new FormField( configPath, createKey( element ), typeUtils.getJavaDoc(element) );
 		if ( isConvertable( element ) )
 		{
-			field.type = Type.String;
+			formField.type = Type.String;
 		}
 		else
 		{
-			field.type = Type.fromJavaType( typeUtils.getType( element.asType() ), Type.String );
-			field.defaultValue = defaultValue;
-			field.enumValues = enumValues;
+			formField.type = Type.fromJavaType( typeUtils.getType( type ), Type.String );
+			formField.defaultValue = defaultValue;
+			formField.enumValues = enumValues;
 		}
 
 		// use capitalized key as default title
-		String key = field.getKey();
+		String key = formField.getKey();
 		if ( key != null )
 		{
-			field.title = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+			formField.title = Character.toUpperCase(key.charAt(0)) + key.substring(1);
 		}
 		
 		// suppress title but use 'inlinetitle' instead (for checkboxes)
-		if ( field.type == Type.Boolean )
+		if ( formField.type == Type.Boolean )
 		{
-			field.noTitle = true;
-			field.inlineTitle = field.title;
+			formField.noTitle = true;
+			formField.inlineTitle = formField.title;
 		}
 		
-		return field;
+		return formField;
 	}
 		
 	public static enum Type {

@@ -20,6 +20,7 @@ public class AnnotationUtils
 	public static final String FORM_FIELD_ANNOTATION = "com.agfa.ee.server.config.FormField";
 	public static final String FORM_GROUP_ANNOTATION = "com.agfa.ee.server.config.FormFieldGroup";
 	public static final String CONVERTABLE_ANNOTATION = "com.agfa.ee.server.config.Convertable";
+	public static final String NO_FORM_FIELD_ANNOTATION = "com.agfa.ee.server.config.NoFormField";
 	
 	public static boolean hasAnnotation(Element element, String type)
 	{
