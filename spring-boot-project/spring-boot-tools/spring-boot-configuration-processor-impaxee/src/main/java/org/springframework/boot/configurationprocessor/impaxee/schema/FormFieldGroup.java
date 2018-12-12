@@ -34,8 +34,6 @@ public class FormFieldGroup extends FormItem
 	{
 		super( path, key, javaDoc );
 		this.type = type;
-		
-		setFieldset( getFullPath() );
 	}
 		
 	public static FormFieldGroup create( GroupType type, Element element, TypeUtils typeUtils, String configPath )
@@ -92,7 +90,7 @@ public class FormFieldGroup extends FormItem
 		
 		if ( items != null )
 		{
-			if ( isNested() )
+			if ( isNested() ) // nested object
 			{
 				JSONObject properties = new JSONObject();
 				for ( FormItem item : items )
@@ -101,25 +99,11 @@ public class FormFieldGroup extends FormItem
 				}
 				object.put( "properties", properties );
 			}
-			else
+			else // array or collection
 			{
 				if ( items.size() == 1 )
 				{
 					object.put( "items", items.get(0).toJSONSchema() );
-				}
-				else
-				{
-					JSONObject properties = new JSONObject();
-					for ( FormItem item : items )
-					{
-						properties.put( item.getKey(), item.toJSONSchema() );
-					}
-					
-					JSONObject itemObject = new JSONObject();
-					itemObject.put("type", "object" );
-					itemObject.put("properties", properties );
-					
-					object.put( "items", itemObject );
 				}
 			}
 		}
@@ -131,29 +115,42 @@ public class FormFieldGroup extends FormItem
 	public JSONObject toJSONLayout() throws JSONException
 	{
 		JSONObject object = new JSONObject();
-		putIfNonNull( object, "type", isNested() ? "section" : "array" );
+		putIfNonNull( object, "type", "fieldset" );
 		putIfNonNull( object, "condition", condition );
+		putIfNonNull( object, "title", title );
+		putIfNonNull( object, "expandable", true );
 		
-		JSONArray array = new JSONArray();
-		if ( items != null )
-		{
-			if ( items.size() == 1 && ( isArray() || isCollection() ) )
-			{
-				FormItem item = items.get(0);
-				JSONObject itemJSON = item.toJSONLayout();
-				putIfNonNull( itemJSON, "key", item.getPath() );
-				array.put(itemJSON);
-			}
-			else
+		if ( isNested() ) // nested object
+		{			
+			JSONArray array = new JSONArray();
+			if ( items != null )
 			{
 				for ( FormItem item : items )
 				{
 					array.put( item.toJSONLayout() );
 				}
 			}
+			
+			object.put("items", array);
+		}
+		else // array or collection
+		{		
+			JSONObject arrayObject = new JSONObject();
+			putIfNonNull( arrayObject, "type", "array" );
+			
+			JSONArray itemsArray = new JSONArray();
+			if ( items.size() == 1 )
+			{
+				itemsArray.put(items.get(0).toJSONLayout());
+			}
+
+			arrayObject.put("items", itemsArray);
+			
+			JSONArray fieldsetArray = new JSONArray();
+			fieldsetArray.put( arrayObject );
+			object.put( "items", fieldsetArray );
 		}
 		
-		object.put("items", array);
 		return object;
 	}
 	

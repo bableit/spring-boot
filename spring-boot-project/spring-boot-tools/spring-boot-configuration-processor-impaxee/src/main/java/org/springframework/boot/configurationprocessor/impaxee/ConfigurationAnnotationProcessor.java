@@ -149,7 +149,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		{
 			if (element instanceof TypeElement)
 			{
-				return processTypeElement(configPath, form, (TypeElement) element, addToBuilder );
+				return processFields(configPath, form, (TypeElement) element, addToBuilder );
 			}
 			else if (element instanceof ExecutableElement)
 			{
@@ -172,62 +172,9 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 					.asElement(element.getReturnType());
 			if (returns instanceof TypeElement)
 			{
-				return processTypeElement(prefix, form, (TypeElement) returns, addToBuilder );
+				return processFields(prefix, form, (TypeElement) returns, addToBuilder );
 			}
 		}
-		return Collections.emptyList();
-	}
-
-	private List<FormItem> processTypeElement(String configPath, Form form, TypeElement element, boolean addToBuilder) 
-	{
-		TypeMirror type = element.asType();
-
-		boolean isCollection = this.typeUtils.isCollection(type);
-		boolean isMap = this.typeUtils.isMap(type);
-		boolean isArray = type.getKind() == TypeKind.ARRAY;
-		boolean isEnum = element.getKind() == ElementKind.ENUM;
-		boolean isDeclared = type.getKind() == TypeKind.DECLARED;
-		boolean isFieldType = FormField.Type.fromJavaType( typeUtils.getType( element.asType() ), null )!=null;
-		
-		if ( isMap ) //java.lang.Map is not supported
-		{
-			logWarning( String.format( "Skipping configuration field ['%s' in %s]: Type declaration of field is java.lang.Map", 
-					element, form.getElement() ) ); 
-		}
-		else if ( isArray ) // array
-		{
-			return addFormItem( form,
-					processArray( configPath, form, element, type ),
-					null, addToBuilder );
-		}
-		else if ( isCollection ) // collection
-		{
-			return addFormItem( form,
-					processCollection( configPath, form, element, type ),
-					null, addToBuilder );
-		}
-		else if ( isEnum ) // enum
-		{
-			return addFormItem( form, 
-					FormField.create(element, element.asType(), typeUtils, configPath, null, getEnumValues(element)),
-					null, addToBuilder );
-		}
-		else if ( isFieldType )
-		{
-			return addFormItem( form, 
-					FormField.create( element, type, typeUtils, configPath, null, getEnumValues( element ) ), 
-					null, addToBuilder ) ;
-		}
-		else if ( isDeclared ) // treat as nested object
-		{
-			return processFields( configPath, form, element, addToBuilder );
-		}
-		else
-		{
-			logWarning( String.format( "Skipping configuration field ['%s' in %s]: Field type is not supported", 
-					element, form.getElement() ) ); 
-		}
-		
 		return Collections.emptyList();
 	}
 	
@@ -298,10 +245,73 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		return items;
 	}
 	
+	
+	private List<FormItem> processTypeArgElement(String configPath, Form form, TypeElement element) 
+	{
+		TypeMirror type = element.asType();
+
+		boolean isCollection = this.typeUtils.isCollection(type);
+		boolean isMap = this.typeUtils.isMap(type);
+		boolean isArray = type.getKind() == TypeKind.ARRAY;
+		boolean isEnum = element.getKind() == ElementKind.ENUM;
+		boolean isDeclared = type.getKind() == TypeKind.DECLARED;
+		boolean isFieldType = FormField.Type.fromJavaType( typeUtils.getType( element.asType() ), null )!=null;
+		
+		if ( isMap ) //java.lang.Map is not supported
+		{
+			logWarning( String.format( "Skipping configuration field ['%s' in %s]: Type declaration of field is java.lang.Map", 
+					element, form.getElement() ) ); 
+		}
+		else if ( isArray ) // array
+		{
+			return addFormItem( form,
+					processArray( configPath, form, element, type ),
+					null, false );
+		}
+		else if ( isCollection ) // collection
+		{
+			return addFormItem( form,
+					processCollection( configPath, form, element, type ),
+					null, false );
+		}
+		else if ( isEnum ) // enum
+		{
+			return addFormItem( form, 
+					FormField.create(element, element.asType(), typeUtils, configPath, null, getEnumValues(element)),
+					null, false );
+		}
+		else if ( isFieldType )
+		{
+			return addFormItem( form, 
+					FormField.create( element, type, typeUtils, configPath, null, getEnumValues( element ) ), 
+					null, false ) ;
+		}
+		else if ( isDeclared )
+		{
+			return addFormItem( form,
+					processTypeArgObject( configPath, form, element, type ),
+					null, false );
+		}
+		else
+		{
+			logWarning( String.format( "Skipping configuration field ['%s' in %s]: Field type is not supported", 
+					element, form.getElement() ) ); 
+		}
+		
+		return Collections.emptyList();
+	}
+	
+	private FormFieldGroup processTypeArgObject( String configPath, Form form, Element element, TypeMirror type )
+	{
+		FormFieldGroup group = FormFieldGroup.create( GroupType.Nested,  element, typeUtils, configPath );
+		group.setItems( processFields( configPath , form, asTypeElement( type ), false ) );
+		return group;
+	}
+	
 	private FormFieldGroup processNestedObject( String configPath, Form form, Element element, TypeMirror type )
 	{
 		FormFieldGroup group = FormFieldGroup.create( GroupType.Nested,  element, typeUtils, configPath );
-		group.setItems( processTypeElement( configPath + "." + group.getKey() , form, asTypeElement( type ), false ) );
+		group.setItems( processFields( configPath + "." + group.getKey() , form, asTypeElement( type ), false ) );
 		return group;
 	}
 	
@@ -318,8 +328,8 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			else
 			{
 				FormFieldGroup group = FormFieldGroup.create( GroupType.Array,  element, typeUtils, configPath );
-				group.setItems( processTypeElement( configPath + "." + group.getKey() + "[]", 
-						form, componentType, false ) );
+				group.setItems( processTypeArgElement( configPath + "." + group.getKey() + "[]", 
+						form, componentType ) );
 				return group;
 			}
 		}
@@ -347,7 +357,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 				else
 				{
 					FormFieldGroup group = FormFieldGroup.create( GroupType.Collection,  element, typeUtils, configPath );
-					group.setItems( processTypeElement( configPath + "." + group.getKey() + "[]", form, argType, false ) );
+					group.setItems( processTypeArgElement( configPath + "." + group.getKey() + "[]", form, argType ) );
 					return group;
 				}
 			}

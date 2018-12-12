@@ -119,7 +119,8 @@ public class FormField extends FormItem
 	{
 		JSONObject object = new JSONObject();
 
-		putIfNonNull( object, "key", getFullPath() );
+		putIfNonNull( object, "key", hasCollectionOrArrayParent() ? 
+				getPath() : getFullPath() );
 		putIfNonNull( object, "type", uiType );
 		putIfNonNull( object, "inlinetitle", inlineTitle );
 		putIfNonNull( object, "prepend", prepend );
@@ -131,6 +132,11 @@ public class FormField extends FormItem
 		putIfNonNull( object, "disabled", disabled );
 		putIfNonNull( object, "condition", condition );
 		
+	    if ( noTitle==null && hasCollectionOrArrayParent() )
+	    {
+	    	putIfNonNull( object, "notitle", true );
+	    }
+	    
 		if ( enumValues != null )
 		{
 			JSONArray titleMap = new JSONArray();
@@ -212,6 +218,12 @@ public class FormField extends FormItem
 			}
 		}
 	}
+	
+	private boolean hasCollectionOrArrayParent()
+	{
+		FormFieldGroup parent = getParentGroup();
+		return parent != null && ( parent.isArray() || parent.isCollection() );
+	}
 		
 	private static Object[] parseEnumValues( Object values )
 	{
@@ -260,7 +272,7 @@ public class FormField extends FormItem
 			formField.noTitle = true;
 			formField.inlineTitle = formField.title;
 		}
-		
+  
 		return formField;
 	}
 		

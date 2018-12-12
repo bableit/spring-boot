@@ -72,7 +72,7 @@ public class FormLayoutBuilder
 	{
 		JSONObject headingItem = new JSONObject();
 		headingItem.put("type", "label");
-		headingItem.put("htmlClass", "headerLabel h1");
+		headingItem.put("htmlClass", "headerLabel");
 		
 		JSONObject saveItem = new JSONObject();
 		saveItem.put("type", "submit");
