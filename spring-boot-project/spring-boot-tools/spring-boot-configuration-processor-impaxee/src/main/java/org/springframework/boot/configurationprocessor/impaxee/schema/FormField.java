@@ -279,7 +279,7 @@ public class FormField extends FormItem
 	public static enum Type {
 		String("string", "java.lang.String", "java.lang.CharSequence"),
 		Boolean("boolean", "java.lang.Boolean"),
-		Integer( "integer", "java.lang.Integer", "java.lang.Short" ),
+		Integer( "integer", "java.lang.Integer", "java.lang.Short", "java.lang.Long" ),
 		Number( "number", "java.lang.Float", "java.lang.Double", "java.lang.Number" );
 		
 		private List<String> javaType;

@@ -189,7 +189,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			String name = me.getKey();
 			VariableElement field = me.getValue();
 			
-			if ( !isFinal( field ) )
+			if ( !isFinal( field ) && !isStatic(field) )
 			{
 				ExecutableElement getter = members.getPublicGetter( name, field.asType());
 				ExecutableElement setter = getSetter( members, field );
@@ -204,22 +204,19 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 					TypeMirror type = getEffectiveType( field, setter );
 					Element typeElement = this.processingEnv.getTypeUtils().asElement(type);
 					
-					boolean isNested = isNested(typeElement, field, parent) && !FormField.isConvertable(typeElement);
+					boolean isDeclared = type.getKind()==TypeKind.DECLARED && 
+							!isCyclePresent(typeElement, parent ) && !FormField.isConvertable(typeElement);
 					boolean isCollection = this.typeUtils.isCollection(type);
 					boolean isMap = this.typeUtils.isMap(type);
 					boolean isArray = type.getKind() == TypeKind.ARRAY;
-
+					boolean isSimpleType = FormField.Type.fromJavaType( typeUtils.getType( type ), null )!=null ||
+							FormField.isConvertable(typeElement);
+					
 					if ( isMap ) //java.lang.Map is not supported
 					{
 						logWarning( String.format( "Skipping configuration field ['%s' in %s]: Type declaration of field is java.lang.Map", 
 								field, form.getElement() ) ); 
 						continue;
-					}
-					else if ( isNested ) // nested object
-					{
-						items = addFormItem( form, 
-								processNestedObject( configPath, form, field, type ), 
-								items, addToBuilder );
 					}
 					else if ( isArray ) // array
 					{
@@ -233,11 +230,22 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 								processCollection( configPath, form, field, type ),
 								items, addToBuilder );
 					}
-					else // a simple type
+					else if ( isSimpleType ) // a simple type
 					{
 						items = addFormItem( form, 
 								FormField.create(field, type, typeUtils, configPath, fieldValues.get(name), getEnumValues( field ) ), 
 								items, addToBuilder ) ;
+					}
+					else if ( isDeclared ) // nested object
+					{
+						items = addFormItem( form, 
+								processDeclaredObject( configPath, form, field, type ), 
+								items, addToBuilder );
+					}
+					else
+					{
+						logWarning( String.format( "Skipping configuration field ['%s' in %s]: Type '%s' is not supported", 
+								name, form.getElement(), type ) ); 
 					}
 				}
 			}
@@ -294,8 +302,8 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		}
 		else
 		{
-			logWarning( String.format( "Skipping configuration field ['%s' in %s]: Field type is not supported", 
-					element, form.getElement() ) ); 
+			logWarning( String.format( "Skipping type argument of configuration field ['%s' in %s]: Type '%s' is not supported", 
+					element, form.getElement(), type ) ); 
 		}
 		
 		return Collections.emptyList();
@@ -308,7 +316,7 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 		return group;
 	}
 	
-	private FormFieldGroup processNestedObject( String configPath, Form form, Element element, TypeMirror type )
+	private FormFieldGroup processDeclaredObject( String configPath, Form form, Element element, TypeMirror type )
 	{
 		FormFieldGroup group = FormFieldGroup.create( GroupType.Nested,  element, typeUtils, configPath );
 		group.setItems( processFields( configPath + "." + group.getKey() , form, asTypeElement( type ), false ) );
@@ -433,7 +441,8 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
 			throw new IllegalStateException( String.format( "Failed to write config layout (%s)", CONFIG_LAYOUT_PATH ), e );
 		}
 	}
-	
+
+	@SuppressWarnings("unused")
 	private static boolean isNested(Element returnType, VariableElement field, TypeElement element) 
 	{
 		if (AnnotationUtils.hasAnnotation(field, NESTED_CONFIGURATION_PROPERTY_ANNOTATION ) ) 
@@ -464,6 +473,11 @@ public class ConfigurationAnnotationProcessor extends AbstractProcessor
     private static boolean isFinal(Element element) 
     {
         return element.getModifiers().contains(Modifier.FINAL);
+    }
+    
+    private static boolean isStatic( Element element )
+    {
+    	return element.getModifiers().contains(Modifier.STATIC);
     }
 
 	private static boolean isParentTheSame(Element returnType, TypeElement element) 
